@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Zadatak_1
 {
@@ -12,15 +10,16 @@ namespace Zadatak_1
     {
         static string path = @"../../Routes.txt";
         static List<int> Routes = new List<int>();
-        static Semaphore semaphore = new Semaphore(2, 2);
+        //static Semaphore semaphore = new Semaphore(1,1);
         static object lockObject = new object();
+        static object lockObject2 = new object();
         static List<Thread> threadList = new List<Thread>();
         static int count = 0;
         static int waitingTime = 0;
 
         static void Main(string[] args)
         {
-            GenerateRoutes();
+            GenerateRoutes();       
             Thread RouteGenerator = new Thread(() => SelectRoutes());
             RouteGenerator.Start();
             RouteGenerator.Join();
@@ -28,11 +27,7 @@ namespace Zadatak_1
             Thread TruckGenerator = new Thread(() => CreateTrucks());
             TruckGenerator.Start();
             TruckGenerator.Join();
-
-            Thread DeliverThread = new Thread(() => Deliver());
-            DeliverThread.Start();
-            DeliverThread.Join();
-
+            
             Thread ShipingThread = new Thread(() => Shiping());
             ShipingThread.Start();
 
@@ -42,13 +37,13 @@ namespace Zadatak_1
         {
             Random rnd = new Random();
 
-            lock (lockObject)
-            {
-                Monitor.Wait(lockObject);
+            //lock (lockObject)
+            //{
+            //    Monitor.Wait(lockObject);
 
                 for (int i = 0; i < threadList.Count; i++)
                 {
-                    Console.WriteLine("{0} is headed to unloading point.(Expected delay time: 0.5s-5s)", threadList[i].Name);
+                    Console.WriteLine("{0} is headed to unloading point,using route {1}.(Expected delay time: 0.5s-5s)", threadList[i].Name, Routes[i]);
                     int unloadWait = rnd.Next(500, 5001);
                     Thread.Sleep(unloadWait);
                     if (unloadWait < 3000)
@@ -64,44 +59,52 @@ namespace Zadatak_1
                         Console.WriteLine("{0} returned to starting point.", threadList[i].Name);
                     }
                 }
-            }
-        }
-        static void Deliver()
-        {
-            for (int i = 0; i < threadList.Count; i++)
-            {
-                Console.WriteLine("Truck: {0}\tRoute: {1}", threadList[i].Name, Routes[i]);
-            }
-        }
+            //}
+        }    
         static void CreateTrucks()
         {
             for (int i = 0; i < 10; i++)
             {
                 Thread t = new Thread(() => Loading(Thread.CurrentThread))
                 {
-                    Name = string.Format("Truck {0}", i)
+                    Name = string.Format("Truck {0}", i + 1)
                 };
-                t.Start();
+                
                 threadList.Add(t);
+            }
+            int a = 0;
+            for (int i = 0; i < 5; i++)
+            {               
+                threadList[a].Start();
+                int temp = ++a;
+                threadList[temp].Start();
+                threadList[a].Join();
+                threadList[temp].Join();
+                a++;
             }
         }
         static void Loading(Thread t)
         {
             Random rnd = new Random();
-            semaphore.WaitOne();
+            //semaphore.WaitOne();
             waitingTime = rnd.Next(500, 5001);
-            Thread.Sleep(waitingTime);
             Console.WriteLine("{0} is loading.", t.Name);
-            semaphore.Release();
-            Console.WriteLine("{0} has left the loading place.{1}\n", t.Name, count++);
-
-            if (count > 9)
+            Thread.Sleep(waitingTime);
+            lock (lockObject)
             {
-                lock (lockObject)
-                {
-                    Monitor.Pulse(lockObject);
-                }
+                Console.WriteLine("\t{0} has left the loading place.{1}", t.Name, count++);
+
             }
+            //semaphore.Release();
+
+
+            //if (count >=9 )
+            //{
+            //    lock (lockObject)
+            //    {
+            //        Monitor.Pulse(lockObject);
+            //    }
+            //}
         }
         static void GenerateRoutes()
         {
